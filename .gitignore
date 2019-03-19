@@ -1,0 +1,8 @@
+# IDE Artifacts
+.idea
+*.iml
+
+# Maven Artifacts
+target
+*.jar
+*.versionsBackup
