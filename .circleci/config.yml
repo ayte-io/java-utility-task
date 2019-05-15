@@ -1,6 +1,7 @@
 version: '2.1'
 orbs:
-  mvnw: ayte/mvnw@0.1.0
+  mvnw: ayte/mvnw@0.1.1
+  jabba: ayte/jabba@0.1.2
 jobs:
   build:
     docker:
@@ -9,10 +10,23 @@ jobs:
     steps:
       - checkout
       - mvnw/circle:
-          command: -B clean clover:setup package test clover:aggregate clover:clover
+          command: -B clean clover:setup test package
+      - mvnw/circle:
+          command: -B clover:aggregate clover:clover
+          when: always
+      - jabba/use:
+          version: zulu@1.8
+          when: always
+      - mvnw/circle:
+          command: -B allure:report
+          when: always
       - store_artifacts:
           path: target/site/clover
           destination: Report/Clover
+          when: always
+      - store_artifacts:
+          path: target/site/allure
+          destination: Report/Allure
           when: always
       - persist_to_workspace:
           root: /tmp/workspace
@@ -29,20 +43,7 @@ jobs:
       - mvnw/circle:
           command: -B sonar:sonar
 
-  report:
-    docker:
-      - image: circleci/openjdk:8
-    working_directory: /tmp/workspace
-    steps:
-      - attach_workspace:
-          at: /tmp/workspace
-      - mvnw/circle:
-          command: allure:report
-      - store_artifacts:
-          path: target/allure/report
-          destination: Report/Allure
-
-  stage:
+  snapshot:
     docker:
       - image: circleci/openjdk:11.0
     working_directory: /tmp/workspace
@@ -99,19 +100,13 @@ workflows:
             tags:
               ignore: /.*/
           context: sonarcloud.io
-      - report:
-          requires:
-            - build
-          filters:
-            tags:
-              only: /.*/
-      - stage:
+      - snapshot:
           requires:
             - build
           context: sonatype.org
           filters:
             branches:
-              only: /.*/
+              only: /release\/.*/
             tags:
               ignore: /.*/
       - release:
